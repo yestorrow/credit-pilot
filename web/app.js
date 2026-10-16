@@ -1,12 +1,150 @@
-const analyses={summary:{title:'Credit Lead summary',tag:'Overall view',items:['Reported leverage is moderate at 3.0× gross debt / EBITDA, with 3.0× EBITDA interest coverage.','The dominant credit issue is the USD 30m maturity due in 2026, equal to 55.6% of total debt.','A 35% largest-customer exposure compounds business risk.','Rating remains withheld pending a methodology and essential cash-flow, liquidity, and refinancing evidence.']},financial:{title:'Financial analysis',tag:'4 findings',items:['EBITDA margin is 15% (18 ÷ 120).','Gross debt / EBITDA is 3.0×; conditional net leverage is 2.5× if all cash is available.','EBITDA interest coverage is 3.0×. This is not cash debt-service coverage.','USD 30m, or 55.6% of debt, matures in 2026. Cash alone leaves a static USD 21m gap.']},industry:{title:'Industry analysis',tag:'4 findings',items:['ABC supplies components to industrial customers, exposing demand to industrial activity.','The largest customer represents 35% of revenue, creating high concentration risk if volumes cannot be replaced.','The supplied information does not establish market share, differentiation, pricing power, or switching costs.','Downturn performance, end-market diversity, backlog, and independent sector evidence are needed before judging resilience.']},deal:{title:'Deal structure analysis',tag:'3 findings',items:['USD 30m of USD 54m debt matures on 31 December 2026.','The concentrated maturity creates a material repayment or refinancing requirement.','Security, seniority, covenants, facilities and refinancing commitments are unspecified—not necessarily absent.']},review:{title:'Independent credit review',tag:'Passed',items:['All calculations reconcile to the synthetic evidence.','Risk conclusions are appropriately conditional and missing information is disclosed.','No rating is presented without a validated methodology.']} };
-const views=document.querySelectorAll('.view'),nav=document.querySelectorAll('[data-nav]');
-function show(id){views.forEach(v=>v.classList.toggle('active',v.id===id));nav.forEach(n=>n.classList.toggle('active',n.dataset.nav===id));scrollTo({top:0,behavior:'smooth'})}
-function render(key){const d=analyses[key];document.querySelectorAll('.agent').forEach(a=>a.classList.toggle('active',a.dataset.agent===key));document.querySelector('#analysis').innerHTML=`<header><h3>${d.title}</h3><span class="tag">${d.tag}</span></header><ul>${d.items.map(x=>`<li>${x}</li>`).join('')}</ul>`}
-document.querySelectorAll('[data-open-case],[data-nav="case"]').forEach(b=>b.addEventListener('click',()=>show('case')));document.querySelectorAll('[data-home],[data-nav="home"]').forEach(b=>b.addEventListener('click',()=>show('home')));document.querySelectorAll('.agent').forEach(b=>b.addEventListener('click',()=>render(b.dataset.agent)));render('summary');
-const fileInput=document.querySelector('#files');fileInput.addEventListener('change',()=>{document.querySelector('#fileList').innerHTML=[...fileInput.files].map(f=>`<span class="file">${f.name}</span>`).join('')});
-const toast=document.querySelector('#toast');document.querySelector('#start').addEventListener('click',()=>{const text=document.querySelector('#request').value.trim();toast.textContent=text?'Request captured in this prototype':'Describe a company first';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2600)});
-const toggle=document.querySelector('#evidenceToggle'),body=document.querySelector('#evidenceBody');toggle.addEventListener('click',()=>{body.hidden=!body.hidden;toggle.setAttribute('aria-expanded',String(!body.hidden))});
-const modal=document.querySelector('#modal');document.querySelector('#about').addEventListener('click',()=>modal.showModal());modal.querySelector('.close').addEventListener('click',()=>modal.close());
-const caseChat=document.querySelector('#caseChat'),question=document.querySelector('#caseQuestion'),messages=document.querySelector('#chatMessages');
-function leadAnswer(text){const q=text.toLowerCase();if(q.includes('industry')||q.includes('customer'))return 'Industry risk is driven mainly by the 35% largest-customer concentration. I would delegate follow-up work on contract duration, customer health, end-market diversity, and downturn performance.';if(q.includes('refinanc')||q.includes('matur'))return 'The 2026 maturity is the central issue: USD 30m, or 55.6% of debt, falls due. I would ask the deal analyst to obtain committed facilities, the refinancing plan, and updated liquidity forecasts.';if(q.includes('leverage')||q.includes('financial')||q.includes('cash'))return 'Reported gross leverage is 3.0× and EBITDA interest coverage is 3.0×. Cash-flow statements and minimum operating cash are missing, so these ratios do not yet prove debt-service capacity.';if(q.includes('rating'))return 'I have withheld a rating because the pilot does not yet contain an approved rating methodology and material evidence is missing. The current output is a reviewed credit research memo.';return 'I would break that into a focused follow-up task, assign it to the relevant analyst, and send the result through the independent reviewer before updating the executive summary.'}
-caseChat.addEventListener('submit',event=>{event.preventDefault();const text=question.value.trim();if(!text)return;messages.insertAdjacentHTML('beforeend',`<div class="message user-message"></div>`);messages.lastElementChild.textContent=text;messages.insertAdjacentHTML('beforeend',`<div class="message lead-message"></div>`);messages.lastElementChild.textContent=leadAnswer(text);question.value='';messages.scrollTop=messages.scrollHeight});
+'use strict';
+const $ = selector => document.querySelector(selector);
+const roles = [
+  ['financial_analyst', 'Financial analysis'],
+  ['business_analyst', 'Industry & business analysis'],
+  ['deal_structure_analyst', 'Deal structure analysis'],
+  ['credit_reviewer', 'Independent credit review']
+];
+const statuses = {queued:'Awaiting Credit Lead',working:'In progress',research_complete:'Research complete',review_blocked:'Review blocked',answered:'Answered',failed:'Failed',invalidated:'Review invalidated'};
+let jobs = [], selected = location.hash.slice(1), current = null, connected = false, refreshing = false;
+let lastView = '';
+function node(tag, text, className) {
+  const result = document.createElement(tag);
+  if (text !== undefined) result.textContent = text;
+  if (className) result.className = className;
+  return result;
+}
+async function api(path, value) {
+  const response = await fetch(path, value === undefined ? {cache:'no-store'} : {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(value)
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Request failed');
+  return result;
+}
+function stateText(status) { return statuses[status] || status; }
+function select(id) {
+  selected = id || ''; current = null; lastView = '';
+  location.hash = selected;
+  $('#newView').hidden = Boolean(selected);
+  $('#caseView').hidden = !selected;
+  drawList(); refresh();
+}
+function drawList() {
+  const container = $('#caseList'); container.replaceChildren();
+  const cases = jobs.filter(j => j.kind === 'analysis');
+  if (!cases.length) container.append(node('p','No cases yet. Start a request or ask the Credit Lead in this chat.','muted'));
+  for (const job of cases) {
+    const button = node('button',undefined,'case-button' + (selected === job.id ? ' active' : ''));
+    button.append(node('strong',job.case.company),node('small',stateText(job.status)+' · '+job.mode),node('small',new Date(job.created_at).toLocaleString()));
+    button.addEventListener('click',()=>select(job.id)); container.append(button);
+  }
+}
+function addList(parent, items) {
+  const list = node('ul');
+  for (const item of items || []) list.append(node('li',item));
+  parent.append(list);
+}
+function drawAgent(role, title, job) {
+  const card = node('article',undefined,'card agent-card'); card.dataset.role = role;
+  const header = node('header'); header.append(node('h3',title)); card.append(header);
+  const orders = job.work_orders.map(o=>o.role);
+  const skipped = role === 'deal_structure_analyst' && !job.case.deal_in_scope;
+  const artifact = role === 'credit_reviewer' ? job.review : job.analyses[role];
+  const published = Boolean(job.result);
+  const label = skipped ? 'Not in scope' : artifact ? (role === 'credit_reviewer' ? (published ? artifact.status : 'Not finalized') : (published ? 'Reviewed' : 'Awaiting review')) : 'Pending';
+  header.append(node('span',label,'badge'));
+  if (skipped) card.append(node('p','No debt or transaction analysis requested.'));
+  else if (!artifact) card.append(node('p',role==='credit_reviewer' ? 'The reviewer will independently assess the specialist outputs.' : orders.includes(role) ? 'Work order prepared. Awaiting this specialist’s output.' : 'The Credit Lead will prepare this work order when the case is claimed.','muted'));
+  else if (role === 'credit_reviewer') {
+    card.append(node('p',artifact.summary)); addList(card,artifact.issues);
+  } else {
+    const findings = node('ul');
+    for (const finding of artifact.findings || []) {
+      const li = node('li',finding.claim);
+      for (const ref of finding.evidence_ids || []) li.append(node('span',ref,'reference'));
+      findings.append(li);
+    }
+    card.append(findings,node('h4','Missing information'));
+    if (artifact.missing_inputs?.length) addList(card,artifact.missing_inputs);
+    else card.append(node('p','No additional gaps recorded by this analyst.','muted'));
+  }
+  return card;
+}
+function drawMessages(job) {
+  const list = $('#chatMessages'); const nearBottom = list.scrollHeight-list.scrollTop-list.clientHeight<60;
+  list.replaceChildren();
+  const first = node('div',undefined,'message user');first.append(node('small','Your initial instruction'),node('span',job.message));list.append(first);
+  if (job.lead) list.append(node('div',job.lead.summary,'message'));
+  const thread = jobs.filter(j=>j.parent_id===job.id).sort((a,b)=>a.created_at.localeCompare(b.created_at));
+  for (const item of thread) {
+    const message = node('div',undefined,'message user');
+    message.append(node('small',item.kind==='question'?'Question':'Follow-up assignment'),node('span',item.message));list.append(message);
+    if (item.reply) list.append(node('div',item.reply,'message'));
+    else if (item.kind === 'analysis') {
+      const result = node('div',undefined,'message');result.append(node('span',stateText(item.status)+'. '));
+      const link = node('button','Open follow-up results','secondary');link.addEventListener('click',()=>select(item.id));result.append(link);list.append(result);
+    } else list.append(node('div',item.error || stateText(item.status)+'. Ask the Credit Lead in this chat to process the inbox.','message'));
+  }
+  if (nearBottom) list.scrollTop = list.scrollHeight;
+}
+function drawCase(job) {
+  current = job;
+  $('#caseCompany').textContent = job.case.company;
+  $('#caseInstruction').textContent = job.message;
+  $('#caseStatus').textContent = stateText(job.status)+' · '+job.mode;
+  const notice = job.status === 'queued' ? 'Saved to the inbox. Tell the Credit Lead in this chat: “Process the Credit Pilot inbox.”' : job.status==='working' ? 'The Credit Lead has claimed this request. Each output appears as it is saved; findings are provisional until review and publication.' : job.status==='review_blocked' ? 'The independent reviewer blocked this run. See objections below; the Credit Lead cannot override them.' : job.status==='failed' ? job.error : job.status==='invalidated' ? 'Published artifacts changed after review. The verdict is no longer valid; create a new run.' : 'Reviewed research published by the Credit Lead. No credit rating has been assigned.';
+  $('#caseNotice').textContent = [notice,...job.artifact_errors].join('\n');
+  $('#leadSummary').textContent = job.lead?.summary || 'Awaiting the Credit Lead’s synthesis of the specialist outputs and independent review.';
+  $('#openQuestions').replaceChildren();
+  for (const question of job.lead?.open_questions || []) $('#openQuestions').append(node('li',question));
+  $('#agentResults').replaceChildren(...roles.map(([role,title])=>drawAgent(role,title,job)));
+  const evidence = $('#evidenceList');evidence.replaceChildren();
+  for (const item of job.case.evidence) evidence.append(node('h4','['+item.id+'] '+item.source),node('p',item.text));
+  drawMessages(job);
+}
+async function refresh() {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    const [status, nextJobs] = await Promise.all([api('/api/status'),api('/api/jobs')]);
+    if (status.mode !== 'codex_chat') throw new Error('Unsupported server mode');
+    connected = true; jobs = nextJobs;
+    $('#connection').textContent = 'Connected · Lead operates in chat';$('#connection').classList.remove('offline');
+    drawList();
+    if (selected) {
+      const id = selected;
+      const job = await api('/api/jobs/'+encodeURIComponent(id));
+      if (id !== selected) return;
+      const view = JSON.stringify([job,jobs.filter(j=>j.parent_id===id)]);
+      if (view !== lastView) {drawCase(job);lastView=view;}
+    }
+  } catch (error) {
+    connected = false;$('#connection').textContent = 'Disconnected · Start the Credit Pilot server';$('#connection').classList.add('offline');
+    if (selected) $('#caseNotice').textContent='Could not refresh this case: '+error.message+'. Existing results may be stale.';
+  } finally {refreshing=false;}
+}
+$('#newCase').addEventListener('click',()=>select(''));
+window.addEventListener('hashchange',()=>{const id=location.hash.slice(1);if(id!==selected)select(id);});
+$('#requestForm').addEventListener('submit',async event=>{
+  event.preventDefault();$('#requestError').textContent='';const button=$('#submitRequest');button.disabled=true;
+  try {
+    if (!connected) throw new Error('The server is disconnected. Start it before submitting.');
+    const job = await api('/api/jobs',{kind:'analysis',mode:$('#depth').value,message:$('#request').value.trim(),case:{company:$('#company').value.trim(),scope:'Corporate credit research',deal_in_scope:$('#deal').checked,evidence:[{id:'E1',source:'User-supplied source material; source details in text',text:$('#evidence').value.trim()}]}});
+    jobs.unshift(job);$('#requestForm').reset();select(job.id);
+  } catch(error) {$('#requestError').textContent=error.message;}
+  finally {button.disabled=false;}
+});
+$('#caseChat').addEventListener('submit',async event=>{
+  event.preventDefault();$('#chatError').textContent='';const button=$('#sendMessage');button.disabled=true;
+  try {
+    if (!connected || !current) throw new Error('Reconnect to the server before sending.');
+    const parent = current.id;
+    const job = await api('/api/jobs',{kind:$('#messageKind').value,parent_id:parent,mode:current.mode,message:$('#caseQuestion').value.trim()});
+    jobs.unshift(job);$('#caseQuestion').value='';lastView='';await refresh();
+  } catch(error) {$('#chatError').textContent=error.message;}
+  finally {button.disabled=false;}
+});
+$('#newView').hidden=Boolean(selected);$('#caseView').hidden=!selected;
+refresh();setInterval(refresh,2500);
