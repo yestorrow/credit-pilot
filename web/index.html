@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10241d">
+  <title>Credit Desk</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="mark">CD</span><div><strong>Credit Desk</strong><small>Pilot workspace</small></div></div>
+    <button class="icon-btn" aria-label="Open menu">•••</button>
+  </header>
+
+  <main>
+    <section id="home" class="view active">
+      <div class="hero">
+        <p class="eyebrow">CREDIT LEAD</p>
+        <h1>What company should we look at?</h1>
+        <p>Describe the task in your own words. The Credit Lead will organize the work and show you what each analyst finds.</p>
+      </div>
+
+      <div class="composer card">
+        <label for="request">Your request</label>
+        <textarea id="request" rows="4" placeholder="For example: Review ABC Components and focus on its 2026 refinancing risk."></textarea>
+        <div id="fileList" class="files" aria-live="polite"></div>
+        <div class="composer-actions">
+          <label class="attach"><input id="files" type="file" multiple accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.txt">＋ Add documents</label>
+          <button id="start" class="primary">Start analysis</button>
+        </div>
+      </div>
+
+      <button class="case-card" data-open-case>
+        <span class="case-icon">A</span>
+        <span><small>COMPLETED DEMO</small><strong>ABC Components</strong><em>3 analysts · Reviewer passed</em></span>
+        <b>›</b>
+      </button>
+      <p class="prototype-note">This private prototype demonstrates the phone experience. New requests and uploads stay in this browser and do not yet run the agent workflow.</p>
+    </section>
+
+    <section id="case" class="view">
+      <button class="back" data-home>‹ New analysis</button>
+      <div class="case-heading"><div><p class="eyebrow">FICTIONAL DEMO</p><h1>ABC Components</h1><p>Corporate credit research · FY2025</p></div><span class="status">Research complete</span></div>
+
+      <article class="lead-summary card">
+        <header><span class="lead-avatar">CL</span><div><p class="eyebrow">CREDIT LEAD</p><h2>Executive summary</h2></div></header>
+        <p>ABC shows moderate reported leverage and adequate EBITDA interest coverage, but its near-term maturity concentration is the central credit issue. Customer concentration adds business risk, while missing cash-flow, facility, covenant, and refinancing information prevents a complete assessment.</p>
+        <div class="signal-row">
+          <span><small>Strength</small><b>15% EBITDA margin</b></span>
+          <span><small>Key risk</small><b>56% of debt due in 2026</b></span>
+          <span><small>Open question</small><b>Refinancing plan</b></span>
+        </div>
+      </article>
+
+      <div class="rating card">
+        <span>Rating</span><strong>—</strong><p>Withheld until a validated rating methodology is added.</p>
+      </div>
+
+      <h2>Analysis team</h2>
+      <div class="agent-grid">
+        <button class="agent lead active" data-agent="summary"><i>CL</i><span><strong>Credit Lead</strong><small>Executive summary</small></span></button>
+        <button class="agent active" data-agent="financial"><i>✓</i><span><strong>Financial analyst</strong><small>4 findings</small></span></button>
+        <button class="agent" data-agent="industry"><i>✓</i><span><strong>Industry analyst</strong><small>4 findings</small></span></button>
+        <button class="agent" data-agent="deal"><i>✓</i><span><strong>Deal structure</strong><small>3 findings</small></span></button>
+        <button class="agent reviewer" data-agent="review"><i>✓</i><span><strong>Credit reviewer</strong><small>Passed</small></span></button>
+      </div>
+
+      <article id="analysis" class="card analysis" aria-live="polite"></article>
+
+      <div class="evidence card">
+        <button id="evidenceToggle" aria-expanded="false"><span><strong>Evidence used</strong><small>3 synthetic sources</small></span><b>⌄</b></button>
+        <div id="evidenceBody" hidden>
+          <p><mark>F1</mark> FY2025 summary: revenue 120, EBITDA 18, debt 54, cash 9 and interest expense 6 (USD millions).</p>
+          <p><mark>B1</mark> Company profile: industrial components; largest customer is 35% of revenue.</p>
+          <p><mark>D1</mark> Debt summary: 30 of 54 matures on 31 December 2026; structural terms unspecified.</p>
+        </div>
+      </div>
+
+      <section class="lead-chat card">
+        <header><span class="lead-avatar">CL</span><div><strong>Ask the Credit Lead</strong><small>Questions about this case or new instructions</small></div></header>
+        <div id="chatMessages" class="chat-messages" aria-live="polite">
+          <div class="message lead-message">I have the complete team analysis. Ask me about leverage, industry risk, refinancing, missing information, or what work the team should do next.</div>
+        </div>
+        <form id="caseChat" class="chat-composer">
+          <label class="sr-only" for="caseQuestion">Message the Credit Lead</label>
+          <textarea id="caseQuestion" rows="2" placeholder="Ask a question or assign follow-up work…"></textarea>
+          <button class="primary" type="submit" aria-label="Send message">Send</button>
+        </form>
+        <p class="prototype-note">Demo responses use the completed fictional case. Live delegation will be connected in the next backend stage.</p>
+      </section>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button data-nav="home" class="active"><span>⌂</span>New</button>
+    <button data-nav="case"><span>▤</span>Cases</button>
+    <button id="about"><span>◎</span>How it works</button>
+  </nav>
+
+  <dialog id="modal"><button class="close" aria-label="Close">×</button><p class="eyebrow">HOW IT WORKS</p><h2>One request, several viewpoints</h2><ol><li>The Credit Lead scopes your request.</li><li>Specialists assess financials, the business, and debt structure.</li><li>An independent reviewer challenges their evidence.</li><li>You receive one memo with open questions kept visible.</li></ol><p class="muted">Agents run when assigned and then stop. The code and audit trail remain in the cloud workspace.</p></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
