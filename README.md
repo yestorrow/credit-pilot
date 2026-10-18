@@ -1,5 +1,8 @@
 # Credit Pilot
 
+Start with [PROJECT.md](PROJECT.md) for the current checkpoint, open PR, architecture,
+roadmap, phone workflow and model recommendations.
+
 A corporate credit research desk operated by the Credit Lead in Codex chat.
 The lead delegates to the existing Financial Analyst, Business/Industry Analyst,
 Deal Structure Analyst and independent Credit Reviewer. Deal work is skipped

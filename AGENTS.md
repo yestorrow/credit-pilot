@@ -1,6 +1,7 @@
 # Credit Pilot working instructions
 
-The user operates the Credit Lead through this Codex chat. Read `README.md`,
+Read `PROJECT.md` first for the current checkpoint and integration branch. The user
+operates the Credit Lead through this Codex chat. Read `README.md`,
 `engine/WORKFLOW.md`, and `engine/MODEL_POLICY.md` before credit work.
 
 ## Process the web inbox
@@ -53,6 +54,14 @@ then run `python engine/desk.py submit INPUT_FILE`. Process that job using the
 same workflow so chat work is visible in the web desk.
 
 ## Development
+
+When working across chats, inspect the actual branch/commit and current PR state;
+do not assume a repository connection shares chat memory, ignored case artifacts,
+credentials or a running server. Use a separate branch per coding task, plus a
+separate checkout/worktree if other tasks share the filesystem. Keep overlapping
+edits sequential. At handoff, include branch/PR, changes, checks, blockers, artifact
+location and the next action. The coordinator updates `PROJECT.md` after integration;
+parallel workers put their handoff in their own PR to avoid racing on this recap.
 
 Run `node --check web/app.js` and `cd engine && python -m unittest discover -s tests -v`
 for changes to the bridge. Credit artifacts and user source material belong in
